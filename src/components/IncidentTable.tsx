@@ -27,41 +27,29 @@ interface IncidentTableProps {
 }
 
 export function IncidentTable({ incidents, onIncidentUpdate }: IncidentTableProps) {
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [isConfiguring, setIsConfiguring] = useState(false);
   const [crisisDialog, setCrisisDialog] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState("");
   const [crisisLink, setCrisisLink] = useState("");
   const { toast } = useToast();
 
-  useEffect(() => {
-    const savedWebhook = localStorage.getItem("google-chat-webhook");
-    if (savedWebhook) {
-      setWebhookUrl(savedWebhook);
-    }
-  }, []);
-
-  const saveWebhookConfig = () => {
-    localStorage.setItem("google-chat-webhook", webhookUrl);
-    setIsConfiguring(false);
-    toast({
-      title: "Configuração salva",
-      description: "Webhook do Google Chat configurado com sucesso!"
-    });
-  };
-
   const handleAcionamento = async (incident: Incident) => {
-    if (!webhookUrl) {
+    // Buscar webhook configurado para a equipe
+    const webhookConfigs = JSON.parse(localStorage.getItem("webhook-configs") || "[]");
+    const webhookConfig = webhookConfigs.find((config: any) => 
+      config.equipe.toLowerCase() === incident.equipe.toLowerCase()
+    );
+
+    if (!webhookConfig?.webhook) {
       toast({
-        title: "Erro",
-        description: "Configure o webhook do Google Chat primeiro",
+        title: "Webhook não configurado",
+        description: `Configure o webhook para a equipe ${incident.equipe} nas configurações`,
         variant: "destructive"
       });
       return;
     }
 
     try {
-      await fetch(webhookUrl, {
+      await fetch(webhookConfig.webhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         mode: "no-cors",
@@ -126,34 +114,6 @@ export function IncidentTable({ incidents, onIncidentUpdate }: IncidentTableProp
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-foreground">Acionamentos</h3>
-        
-        <Dialog open={isConfiguring} onOpenChange={setIsConfiguring}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="w-4 h-4" />
-              Configurar Webhook
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Configurar Google Chat Webhook</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="webhook">URL do Webhook</Label>
-                <Input
-                  id="webhook"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://chat.googleapis.com/v1/spaces/..."
-                />
-              </div>
-              <Button onClick={saveWebhookConfig} className="w-full btn-enterprise">
-                Salvar Configuração
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <Card className="data-table">

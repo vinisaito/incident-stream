@@ -6,6 +6,7 @@ import { CriticalIncidents } from "@/components/CriticalIncidents";
 import { RDMTracking } from "@/components/RDMTracking";
 import { ShiftNotes } from "@/components/ShiftNotes";
 import { BackgroundSettings } from "@/components/BackgroundSettings";
+import { WebhookSettings } from "@/components/WebhookSettings";
 import { useToast } from "@/hooks/use-toast";
 
 interface IncidentData {
@@ -18,6 +19,18 @@ interface IncidentData {
   severidade: string;
   acionado: boolean;
   e0: string;
+}
+
+interface ApiIncidentData {
+  num_chamado: string;
+  equipe: string;
+  dat_abertura: string;
+  titulo: string;
+  sistema_ambiente: string;
+  impacto: string;
+  causado_pela_rdm: string;
+  soluc_aplicada: string;
+  causa_raiz_incidente: string;
 }
 
 // Mock data - substituir pela API real
@@ -69,9 +82,33 @@ const mockIncidents: IncidentData[] = [
 ];
 
 export default function CIOPSDashboard() {
-  const [incidents, setIncidents] = useState<IncidentData[]>(mockIncidents);
+  const [incidents, setIncidents] = useState<IncidentData[]>([]);
   const [lastAlertTime, setLastAlertTime] = useState<number>(0);
+  const [acionados, setAcionados] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  // Recuperar acionamentos salvos
+  useEffect(() => {
+    const savedAcionados = localStorage.getItem("acionados");
+    if (savedAcionados) {
+      setAcionados(new Set(JSON.parse(savedAcionados)));
+    }
+  }, []);
+
+  // Função para mapear dados da API para formato interno
+  const mapApiDataToIncidents = (apiData: ApiIncidentData[]): IncidentData[] => {
+    return apiData.map((item, index) => ({
+      id: item.num_chamado || `incident-${index}`,
+      tipo: item.impacto ? "Incidente" : "Alerta",
+      alerta: item.sistema_ambiente || "N/A",
+      equipe: item.equipe || "N/A",
+      abertura: item.dat_abertura ? new Date(item.dat_abertura).toLocaleString('pt-BR') : "N/A",
+      titulo: item.titulo || "N/A",
+      severidade: "SEV4", // Mapear baseado na criticidade se disponível
+      acionado: acionados.has(item.num_chamado || `incident-${index}`),
+      e0: "N/A" // Este campo não vem da API
+    }));
+  };
 
   // Atualizar dados da API periodicamente
   useEffect(() => {
@@ -79,12 +116,16 @@ export default function CIOPSDashboard() {
       try {
         const response = await fetch("https://7nu1y7qzs1.execute-api.us-east-1.amazonaws.com/prod/dados");
         if (response.ok) {
-          const data = await response.json();
-          setIncidents(data);
+          const apiResponse = await response.json();
+          // A API retorna { statusCode: 200, body: "[...]" }
+          const data = JSON.parse(apiResponse.body) as ApiIncidentData[];
+          const mappedIncidents = mapApiDataToIncidents(data);
+          setIncidents(mappedIncidents);
         }
       } catch (error) {
         console.error("Erro ao buscar dados da API:", error);
-        // Manter dados mock em caso de erro
+        // Usar dados mock em caso de erro
+        setIncidents(mockIncidents);
       }
     };
 
@@ -95,7 +136,7 @@ export default function CIOPSDashboard() {
     fetchData();
 
     return () => clearInterval(interval);
-  }, []);
+  }, [acionados]);
 
   // Verificar alertas não acionados e tocar som
   useEffect(() => {
@@ -118,6 +159,11 @@ export default function CIOPSDashboard() {
   }, [incidents, lastAlertTime, toast]);
 
   const handleIncidentUpdate = (incidentId: string) => {
+    const newAcionados = new Set(acionados);
+    newAcionados.add(incidentId);
+    setAcionados(newAcionados);
+    localStorage.setItem("acionados", JSON.stringify(Array.from(newAcionados)));
+    
     setIncidents(prev => 
       prev.map(inc => 
         inc.id === incidentId 
@@ -145,10 +191,8 @@ export default function CIOPSDashboard() {
           <p className="text-muted-foreground">Centro Integrado de Operações e Segurança</p>
         </div>
         <div className="flex items-center gap-2">
+          <WebhookSettings />
           <BackgroundSettings />
-          <div className="text-sm text-muted-foreground">
-            Última atualização: {new Date().toLocaleTimeString()}
-          </div>
         </div>
       </div>
 
@@ -162,7 +206,8 @@ export default function CIOPSDashboard() {
             <StatusCard 
               title="INCIDENTE SEV4" 
               count={sev4Incidents} 
-              severity="sev4" 
+              severity="sev4"
+              variant="incident"
             />
             <PendingCard count={pendingSev4Incidents} />
           </div>
@@ -171,7 +216,8 @@ export default function CIOPSDashboard() {
             <StatusCard 
               title="ALERTA SEV4" 
               count={sev4Alerts} 
-              severity="sev4" 
+              severity="sev4"
+              variant="alert"
             />
             <PendingCard count={pendingSev4Alerts} />
           </div>

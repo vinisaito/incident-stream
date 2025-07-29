@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Palette, Monitor } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+const themeOptions = [
+  { name: "Tema Escuro", value: "dark", mode: "dark" },
+  { name: "Tema Claro", value: "light", mode: "light" }
+];
+
 const backgroundOptions = [
   { name: "Padrão CIOPS", value: "default", gradient: "linear-gradient(135deg, hsl(218, 23%, 6%), hsl(220, 20%, 10%))" },
   { name: "Azul Profundo", value: "deep-blue", gradient: "linear-gradient(135deg, hsl(230, 35%, 8%), hsl(235, 30%, 12%))" },
@@ -14,31 +19,52 @@ const backgroundOptions = [
 ];
 
 export function BackgroundSettings() {
+  const [selectedTheme, setSelectedTheme] = useState("dark");
   const [selectedBackground, setSelectedBackground] = useState("default");
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("background-theme");
-    if (saved) {
-      setSelectedBackground(saved);
-      applyBackground(saved);
-    }
+    const savedTheme = localStorage.getItem("color-theme") || "dark";
+    const savedBackground = localStorage.getItem("background-theme") || "default";
+    
+    setSelectedTheme(savedTheme);
+    setSelectedBackground(savedBackground);
+    
+    applyTheme(savedTheme);
+    applyBackground(savedBackground);
   }, []);
+
+  const applyTheme = (theme: string) => {
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+    } else {
+      document.documentElement.classList.remove("light");
+    }
+  };
 
   const applyBackground = (value: string) => {
     const option = backgroundOptions.find(opt => opt.value === value);
-    if (option) {
+    if (option && selectedTheme === "dark") {
       document.documentElement.style.setProperty('--custom-background', option.gradient);
       document.body.style.background = option.gradient;
       document.body.style.backgroundAttachment = 'fixed';
+    } else if (selectedTheme === "light") {
+      document.body.style.background = "";
+      document.documentElement.style.removeProperty('--custom-background');
     }
+  };
+
+  const handleThemeChange = (theme: string) => {
+    setSelectedTheme(theme);
+    localStorage.setItem("color-theme", theme);
+    applyTheme(theme);
+    applyBackground(selectedBackground);
   };
 
   const handleBackgroundChange = (value: string) => {
     setSelectedBackground(value);
     localStorage.setItem("background-theme", value);
     applyBackground(value);
-    setIsOpen(false);
   };
 
   return (
@@ -54,12 +80,41 @@ export function BackgroundSettings() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Monitor className="w-5 h-5" />
-            Configurar Fundo da Aplicação
+            Configurar Tema da Aplicação
           </DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 gap-3">
-          {backgroundOptions.map((option) => (
+        <div className="space-y-4">
+          {/* Seleção de Tema */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-foreground">Modo de Cor</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {themeOptions.map((theme) => (
+                <Card
+                  key={theme.value}
+                  className={`cursor-pointer border-2 transition-all hover:scale-105 ${
+                    selectedTheme === theme.value 
+                      ? "border-primary shadow-[0_0_15px_hsl(var(--primary)/0.3)]" 
+                      : "border-card-border hover:border-primary/50"
+                  }`}
+                  onClick={() => handleThemeChange(theme.value)}
+                >
+                  <CardContent className="p-3">
+                    <div className="text-center">
+                      <h5 className="font-medium text-foreground">{theme.name}</h5>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Seleção de Fundo (apenas modo escuro) */}
+          {selectedTheme === "dark" && (
+            <div className="space-y-3">
+              <h4 className="font-medium text-foreground">Fundo (Modo Escuro)</h4>
+              <div className="grid grid-cols-1 gap-3">
+                {backgroundOptions.map((option) => (
             <Card
               key={option.value}
               className={`cursor-pointer border-2 transition-all hover:scale-105 ${
@@ -84,8 +139,11 @@ export function BackgroundSettings() {
                   />
                 </div>
               </CardContent>
-            </Card>
-          ))}
+                </Card>
+              ))}
+            </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -5,14 +5,22 @@ interface StatusCardProps {
   title: string;
   count: number;
   severity: "sev4" | "sev3" | "critical";
+  variant?: "incident" | "alert";
   className?: string;
 }
 
 const severityConfig = {
   sev4: {
-    bgClass: "bg-sev4/10 border-sev4/30",
-    textClass: "text-sev4",
-    glowClass: "shadow-[0_0_20px_hsl(var(--sev4)/0.3)]"
+    incident: {
+      bgClass: "bg-blue-500/10 border-blue-500/30",
+      textClass: "text-blue-400",
+      glowClass: "shadow-[0_0_20px_hsl(221_83%_53%/0.3)]"
+    },
+    alert: {
+      bgClass: "bg-cyan-500/10 border-cyan-500/30",
+      textClass: "text-cyan-400", 
+      glowClass: "shadow-[0_0_20px_hsl(188_94%_43%/0.3)]"
+    }
   },
   sev3: {
     bgClass: "bg-sev3/10 border-sev3/30", 
@@ -26,8 +34,8 @@ const severityConfig = {
   }
 };
 
-export function StatusCard({ title, count, severity, className }: StatusCardProps) {
-  const config = severityConfig[severity];
+export function StatusCard({ title, count, severity, variant = "incident", className }: StatusCardProps) {
+  const config = severity === "sev4" ? severityConfig[severity][variant] : severityConfig[severity];
   
   return (
     <Card className={cn(
